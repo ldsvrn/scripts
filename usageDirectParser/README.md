@@ -5,15 +5,15 @@ It allows the user to export a database.
 This script uses that data to show all-time screen time and screen time of the top N apps.
 
 ```
-usage: main.py [-h] [-n N] path
+usage: usageDirectParser.py [-h] [-n N] [-i AppId] path
 
 Extract basic information out a usageDirect backup
 
 positional arguments:
-  path        usageDirect backup path
+  path                usageDirect backup path
 
 options:
-  -h, --help  show this help message and exit
-  -n N        Number of results
-
+  -h, --help          show this help message and exit
+  -n N                Number of results
+  -i, --ignore AppId  Ignore apps (csv)
 ```
