@@ -1,7 +1,8 @@
 import sqlite3
 import os
 import logging
-from tempfile import TemporaryFile
+import io
+from tempfile import NamedTemporaryFile
 from Crypto.Cipher import Blowfish
 from Crypto.Util.Padding import unpad
 from zipfile import ZipFile
@@ -9,7 +10,7 @@ from zipfile import ZipFile
 logger = logging.getLogger(__name__)
 
 class MusicoletBackup():
-    def __init__(self, zipbackup: ZipFile):
+    def __init__(self, backup_path: str):
         def __decrypt_file(data: bytes) -> bytes:
             # key from /u/wrr666: https://www.reddit.com/r/androidapps/comments/t9zwow/musicolet_reading_backup/
             # krosbits, WHY, just WHY is the backup encrypted???
@@ -22,22 +23,34 @@ class MusicoletBackup():
             data_decrypted = unpad(data_decrypted, Blowfish.block_size)
             return data_decrypted
         
-        decr_files = {}
         # we can decrypt all files from the zip
-        namelist = zipbackup.namelist()
-        for name in namelist:
-            try:
-                decr_data = __decrypt_file(zipbackup.open(name).read())
-            except ValueError as e:
-                # note: the hash file is the only one that should fail,
-                # it is not encrypted, it is the md5 hash of the unencrypted "0.musicolet.backup" file
-                logger.error(f"Decryption failed for file '{name}': {e}")
-                continue
+        with ZipFile(backup_path, "r") as zipbackup:
+            decr_files = {}
+            namelist = zipbackup.namelist()
+            for name in namelist:
+                try:
+                    decr_data = __decrypt_file(zipbackup.open(name).read())
+                except ValueError as e:
+                    # note: the hash file is the only one that should fail,
+                    # it is not encrypted, it is the md5 hash of the unencrypted "0.musicolet.backup" file
+                    logger.error(f"Decryption failed for file '{name}': {e}")
+                    continue
 
-            logger.debug(f"Decrypted '{name}' successfully.")
-            decr_files[name] = decr_data
-        self.backup = decr_files
-
+                logger.debug(f"Decrypted '{name}' successfully.")
+                decr_files[name] = decr_data
+            self.backup = decr_files
+        
+        self.__maindb_file = NamedTemporaryFile()
+        self.__maindb_file.write(self.backup["DB_SONGS_LOG"])
+        self.__maindb_conn = sqlite3.connect(self.__maindb_file.name)
+        self.__maindb_conn.row_factory = sqlite3.Row
+        self.__maindb_cursor = self.__maindb_conn.cursor()
+        
+        
+    def __del__(self):
+        logger.debug("deleted object, closed temporary files")
+        self.__maindb_file.close()
+        
 
     def export_all_files(self, path: str) -> None:
         # make the dir if not exists
@@ -48,18 +61,44 @@ class MusicoletBackup():
                 f.write(self.backup[name])
                 
     
-    def get_top_N_songs_alltime(self, n: int) -> list:
-        if self.backup["DB_SONGS_LOG"] == None:
-            raise Exception("File 'DB_SONGS_LOG' does not exist in the backup!")
+    def get_top_N_songs_alltime(self, n: int) -> list:                    
+        self.__maindb_cursor.execute(
+            f'SELECT * FROM "TABLE_SONGS" ORDER BY "COL_NUM_PLAYED" DESC LIMIT {n};'
+        )
         
-        # we need the database to be in a file for the sqlite library to work
-        with tempfile.TemporaryFile() as tempfile:
-            tempfile.write(self.backup["DB_SONGS_LOG"])
-            db = sqlite3.connect(tempfile).cursor()
-            
-            db.execute(
-                f'SELECT * FROM "TABLE_SONGS" ORDER BY "COL_NUM_PLAYED" DESC LIMIT {n};'
-            )
-            
-            return []
-            
+        # results as a list of dict
+        res =[dict(row) for row in self.__maindb_cursor.fetchall()] 
+    
+        return res
+        
+        
+    @property
+    def listening_time_alltime(self) -> int:
+        self.__maindb_cursor.execute(
+                'SELECT SUM(COL_NUM_PLAYED * COL_DURATION) AS time FROM TABLE_SONGS;'
+                )
+        return int(self.__maindb_cursor.fetchall()[0]["time"])
+    
+# all of theses are very wrong
+    @property
+    def listening_time_year(self) -> int:
+        self.__maindb_cursor.execute(
+                'SELECT SUM(COL_NUM_PLAYED_Y * COL_DURATION) AS time FROM TABLE_SONGS;'
+                )
+        return int(self.__maindb_cursor.fetchall()[0]["time"])
+        
+        
+    @property
+    def listening_time_month(self) -> int:
+        self.__maindb_cursor.execute(
+                'SELECT SUM(COL_NUM_PLAYED_M * COL_DURATION) AS time FROM TABLE_SONGS;'
+                )
+        return int(self.__maindb_cursor.fetchall()[0]["time"])
+    
+    
+    @property
+    def listening_time_week(self) -> int:
+        self.__maindb_cursor.execute(
+                'SELECT SUM(COL_NUM_PLAYED_W * COL_DURATION) AS time FROM TABLE_SONGS;'
+                )
+        return int(self.__maindb_cursor.fetchall()[0]["time"])

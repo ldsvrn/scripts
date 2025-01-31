@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from zipfile import ZipFile
 from mscltbck import MusicoletBackup
 
 import logging
@@ -9,10 +8,7 @@ import argparse
 logger = logging.getLogger(__name__)
 
 def main(args) -> int:
-    # open and extract all files from the backup
-    decr_files = {}
-    with ZipFile(args.path, "r") as encr_zip:
-        bck = MusicoletBackup(encr_zip)
+    bck = MusicoletBackup(args.path)
 
     # IFIFIFIFIFIFIFIFIFIFIFIFIFIF
     if args.decrypt:
