@@ -7,16 +7,26 @@ import tempfile
 import zipfile
 from prettytable import PrettyTable
 
-parser = argparse.ArgumentParser(description='Extract basic information out a usageDirect backup')
-parser.add_argument('path', help='usageDirect backup path')
-parser.add_argument('-n', default=20, help='Number of results')
-parser.add_argument('-i', '--ignore', help='Ignore apps (csv)', metavar="AppId", type=str, required=False)
+parser = argparse.ArgumentParser(description="Extract basic information out a usageDirect backup")
+parser.add_argument("path", help="usageDirect backup path")
+parser.add_argument("-n", default=20, help="Number of results")
+parser.add_argument(
+    "-i",
+    "--ignore",
+    help="Ignore apps (csv)",
+    metavar="AppId",
+    type=str,
+    required=False,
+)
 args = parser.parse_args()
 
 # some apps, like the clock have a HUGE screen time because of always on displays
-# this is technically unsafe as it allows for SQL injection but how cares here ? 
-IGNORED_APPS = ",".join([f'"{item.strip()}"' for item in ["com.android.deskclock"] + args.ignore.split(',')]) \
-                if args.ignore else '"com.android.deskclock"'  
+# this is technically unsafe as it allows for SQL injection but how cares here ?
+IGNORED_APPS = (
+    ",".join([f'"{item.strip()}"' for item in ["com.android.deskclock"] + args.ignore.split(",")])
+    if args.ignore
+    else '"com.android.deskclock"'
+)
 
 SQL_TOTAL_TIME = f"""
 SELECT SUM(timeUsed)
@@ -61,5 +71,6 @@ total_shown_time = 0
 for item in data:
     total_shown_time += item[1]
 # what the f--- this is awful
-print(f"Total for the top {args.n} apps: {round(total_shown_time, 1)}h ({round(total_shown_time / total_screentime * 100, 1)}% of total)")
-
+print(
+    f"Total for the top {args.n} apps: {round(total_shown_time, 1)}h ({round(total_shown_time / total_screentime * 100, 1)}% of total)"
+)
