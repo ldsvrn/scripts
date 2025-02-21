@@ -31,8 +31,7 @@ def main() -> int:
     print(week)
 
     with open(os.path.expanduser("~/Desktop/favs.json"), "w") as f:
-
-        f.write(json.dumps(bck.get_favs(), ensure_ascii=False))
+        f.write(json.dumps(bck.favorites, ensure_ascii=False))
 
 
 if __name__ == "__main__":

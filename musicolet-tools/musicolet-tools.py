@@ -8,36 +8,52 @@ import argparse
 logger = logging.getLogger(__name__)
 
 
-def main(args) -> int:
-    logger.debug(f"Args: {args}")
-    bck = MusicoletBackup(args.path)
+def subc_export(args, bck: MusicoletBackup) -> int:
+    return 0
 
-    # IFIFIFIFIFIFIFIFIFIFIFIFIFIF
-    if args.decrypt:
-        bck.export_all_files(args.decrypt)
-        # exit with return code 0
-        return 0
 
-    if args.print_fav:
-        for fav in bck.favorites:
-            print(f"{fav['album']} - {fav['title']}")
+def subc_print(args, bck: MusicoletBackup) -> int:
+    if args.favorites:
+        for song in bck.favorites:
+            print(song["path"] if args.paths else f"{song['album']} - {song['title']}")
 
-    if args.print_fav_path:
-        for fav in bck.favorites:
-            print(fav["path"])
+    if args.playlist:
+        for song in bck.get_playlist(args.playlist.strip()):
+            print(song["path"] if args.paths else f"{song['album']} - {song['title']}")
 
-    if args.print_playlists:
+    if args.all_playlists:
         for playlist in bck.playlists:
             print(playlist)
+    return 0
+
+
+def main(args) -> int:
+    logger.debug(f"Args: {args}")
+    bck = MusicoletBackup(args.backup)
+
+    if args.decrypt:
+        bck.export_all_files(args.decrypt)
+        return 0
+
+    if args.subcommand == "export":
+        return subc_export(args, bck)
+
+    if args.subcommand == "print":
+        return subc_print(args, bck)
 
 
 if __name__ == "__main__":
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s",
         level=logging.CRITICAL,
+        # level=logging.INFO,
     )
     parser = argparse.ArgumentParser(description="Extract information out of a Musicolet backup")
-    parser.add_argument("path", help="Musicolet backup path")
+    parser.add_argument(
+        "backup",
+        help="Musicolet backup .zip path",
+        metavar="path",
+    )
     parser.add_argument(
         "-d",
         "--decrypt",
@@ -45,22 +61,46 @@ if __name__ == "__main__":
         required=False,
         metavar="dir",
     )
-    print_group = parser.add_mutually_exclusive_group()
-    print_group.add_argument(
-        "--print-fav",
-        help="Print all of the favourites songs (Album - Song)",
+    subparsers = parser.add_subparsers(help="Subcommands", dest="subcommand")
+
+    # --- Export subparser
+    subp_export = subparsers.add_parser(
+        name="export",
+        description="Exports playlists",
+        help="Exports playlists",
+    )
+
+    # --- Print subparser
+    subp_print = subparsers.add_parser(
+        name="print",
+        description="Print information in the terminal",
+        help="Print information in the terminal",
+    )
+    excg_print = subp_print.add_mutually_exclusive_group()
+    excg_print.add_argument(
+        "-f",
+        "--favorites",
+        help="Print all favourites songs",
         required=False,
         action="store_true",
     )
-    print_group.add_argument(
-        "--print-fav-path",
-        help="Print all of the favourites songs paths",
+    excg_print.add_argument(
+        "-p",
+        "--playlist",
+        help="Print the content of a playlist",
+        required=False,
+        metavar="name",
+    )
+    excg_print.add_argument(
+        "--all-playlists",
+        help="Print all playlist names",
         required=False,
         action="store_true",
     )
-    print_group.add_argument(
-        "--print-playlists",
-        help="Print all of playlists names",
+
+    subp_print.add_argument(
+        "--paths",
+        help="Print paths instead of names",
         required=False,
         action="store_true",
     )

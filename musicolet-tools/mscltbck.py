@@ -93,7 +93,7 @@ class MusicoletBackup:
         elif url.scheme == "content":
             # example: content://com.android.externalstorage.documents/tree/primary:Music/document/primary:Music/xxx/yyy/zzz/02.opus
             # here url.path would be: /tree/primary:Music/document/primary:Music/xxx/yyy/zzz/02.opus, soooooooo:
-            return url.path.split(":")[-1]
+            return url.path.split("document/primary:")[-1]
 
     def __parse_playlist(self, filename: str) -> list:
         """
@@ -103,7 +103,8 @@ class MusicoletBackup:
         however there is THREE ways that paths are stored: file:// content:// and musicolet://
         aaaaAAAAaaaaAAaaaaaAAaaAAaaAAAAAAAaaaAaaaAAaaaAAAaa
         """
-        raw = json.loads(unquote(self.backup["0.favs"]))
+        logger.info(f"Parsing playlist file '{filename}'...")
+        raw = json.loads(unquote(self.backup[filename]))
 
         formatted = [
             {"path": MusicoletBackup.__parse_path(p), "title": t, "album": a, "duration": d}
@@ -116,6 +117,12 @@ class MusicoletBackup:
         ]
 
         return formatted
+
+    def get_playlist(self, name: str) -> list:
+        if name + ".mpl" not in self.backup.keys():
+            raise FileNotFoundError(f"Playlist '{name}' does not exist!")
+
+        return self.__parse_playlist(name + ".mpl")
 
     @property
     def favorites(self) -> list:
