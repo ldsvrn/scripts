@@ -75,11 +75,12 @@ class MusicoletBackup:
     def __parse_path(path: str) -> str:
         # logger.debug(f"Parsing the url {path}")
         url = urlparse(path)
+        # we unquote at the end because for the musicolet:// scheme parse_qs() would fail if the path has '&' chars
         if url.scheme == "file":
             # example: file:///storage/emulated/0/Music/xxx/yyy/zzz/01.mp3
             # dirty quick way to remove "/storage/emulated/0" to be consitent with other schemes,
             # if it is not there it will just return the full real path
-            return url.path.split("/storage/emulated/0/")[-1]
+            return unquote(url.path.split("/storage/emulated/0/")[-1])
         elif url.scheme == "musicolet":
             # example: musicolet://media-store?p_v=primary&p_rp=Music/xxx/yyy/zzz&p_dn=01.opus&p_id=1234567890&p_mt=1
             # we need url.query and use parse_qs() to get p_rp and p_dn
@@ -93,7 +94,9 @@ class MusicoletBackup:
         elif url.scheme == "content":
             # example: content://com.android.externalstorage.documents/tree/primary:Music/document/primary:Music/xxx/yyy/zzz/02.opus
             # here url.path would be: /tree/primary:Music/document/primary:Music/xxx/yyy/zzz/02.opus, soooooooo:
-            return url.path.split("document/primary:")[-1]
+            return unquote(url.path).split("document/primary:")[-1]
+        else:
+            raise Exception(f"Unexpected '{url.scheme}' url scheme!")
 
     def __parse_playlist(self, filename: str) -> list:
         """
@@ -104,7 +107,7 @@ class MusicoletBackup:
         aaaaAAAAaaaaAAaaaaaAAaaAAaaAAAAAAAaaaAaaaAAaaaAAAaa
         """
         logger.info(f"Parsing playlist file '{filename}'...")
-        raw = json.loads(unquote(self.backup[filename]))
+        raw = json.loads(self.backup[filename])
 
         formatted = [
             {"path": MusicoletBackup.__parse_path(p), "title": t, "album": a, "duration": d}

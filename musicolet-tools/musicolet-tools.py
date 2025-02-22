@@ -29,6 +29,7 @@ def subc_export(args, bck: MusicoletBackup) -> int:
         print("Invalid arguments for the export subcommand!")
         return 1
 
+    exported_count = 0
     with open(args.output, "w", encoding="utf-8") as f:
         f.write("#EXTM3U\n")  # M3U8 header
         for song in playlist:
@@ -40,11 +41,23 @@ def subc_export(args, bck: MusicoletBackup) -> int:
             if args.replace:
                 # HAHAHA I LOVE PYTHON LMAO
                 for i in [j.split(",") for j in args.replace]:
-                    path = path.replace(i[0], i[1])
+                    # this is so bad but who cares
+                    # the reason I need this is if I want a second replace
+                    # applied only if the first replace is done
+                    if i[0] in path:
+                        path = path.replace(i[0], i[1])
+                        if len(i) == 4:
+                            path = path.replace(i[2], i[3])
+            # if --check flag is set args.check=True, the file will have to exist
+            # to be written in the playlist
+            if not args.check or os.path.exists(path):
+                f.write(f"#EXTINF:{duration},{song['title']}\n")
+                f.write(f"{path}\n")
+                exported_count += 1
+            else:
+                print(f"Skipping {path}")
 
-            f.write(f"#EXTINF:{duration},{song['title']}\n")
-            f.write(f"{path}\n")
-
+    print(f"Successfully exported {exported_count} songs out of {len(playlist)} in {args.output}.")
     return 0
 
 
@@ -105,19 +118,6 @@ if __name__ == "__main__":
         description="Exports playlists or favorites to m3u8 files",
         help="Exports playlists",
     )
-    subp_export.add_argument(
-        "output",
-        help="Path of the m3u8 file",
-        # required=True,
-    )
-    subp_export.add_argument(
-        "-r",
-        "--replace",
-        help="Replace part of the path with something else, comma separated (old,new)",
-        required=False,
-        metavar="name",
-        action="append",
-    )
     excg_export = subp_export.add_mutually_exclusive_group(required=True)
     excg_export.add_argument(
         "-p",
@@ -132,6 +132,28 @@ if __name__ == "__main__":
         help="Export all favourites songs",
         required=False,
         action="store_true",
+    )
+    subp_export.add_argument(
+        "-r",
+        "--replace",
+        help="""Replace part of the path with something else, comma separated 'old,new,old2,new2', 
+        last 2 values are not required and will apply only if the first replace is done, 
+        this argument can be called multiple times""",
+        required=False,
+        metavar="csv",
+        action="append",
+    )
+    subp_export.add_argument(
+        "-c",
+        "--check",
+        help="Check if file exists before writing it to the m3u8, test done after replace",
+        required=False,
+        action="store_true",
+    )
+    subp_export.add_argument(
+        "output",
+        help="Path of the m3u8 file",
+        # required=True,
     )
 
     # --- Print subparser
