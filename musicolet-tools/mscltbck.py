@@ -118,8 +118,11 @@ class MusicoletBackup:
 
         return formatted
 
+    def playlist_exists(self, name: str) -> bool:
+        return name + ".mpl" in self.backup.keys()
+
     def get_playlist(self, name: str) -> list:
-        if name + ".mpl" not in self.backup.keys():
+        if playlist_exists(name):
             raise FileNotFoundError(f"Playlist '{name}' does not exist!")
 
         return self.__parse_playlist(name + ".mpl")

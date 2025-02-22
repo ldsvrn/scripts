@@ -4,11 +4,47 @@ from mscltbck import MusicoletBackup
 
 import logging
 import argparse
+import os
 
 logger = logging.getLogger(__name__)
 
 
 def subc_export(args, bck: MusicoletBackup) -> int:
+    if os.path.exists(args.output):
+        print(f"File '{args.output}' already exists!")
+        return 1
+
+    # if using the subcommand "export", at least one argument must be used,
+    # either the favorites or a playlist, we can assulme
+    if args.playlist:
+        if bck.playlist_exists(args.playlist):
+            playlist = bck.get_playlist(args.playlist)
+        else:
+            print(f"Playlist '{args.playlist}' does not exist!")
+            return 1
+    elif args.favorites:
+        playlist = bck.favorites
+    else:
+        # argparse shouldn't let this happen
+        print("Invalid arguments for the export subcommand!")
+        return 1
+
+    with open(args.output, "w", encoding="utf-8") as f:
+        f.write("#EXTM3U\n")  # M3U8 header
+        for song in playlist:
+            # it's in ms in the backup
+            duration = round(song["duration"] / 1000)
+            path = song["path"]
+
+            # honestly it would be better to just use a regex here
+            if args.replace:
+                # HAHAHA I LOVE PYTHON LMAO
+                for i in [j.split(",") for j in args.replace]:
+                    path = path.replace(i[0], i[1])
+
+            f.write(f"#EXTINF:{duration},{song['title']}\n")
+            f.write(f"{path}\n")
+
     return 0
 
 
@@ -52,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "backup",
         help="Musicolet backup .zip path",
-        metavar="path",
+        metavar="backup_path",
     )
     parser.add_argument(
         "-d",
@@ -66,8 +102,36 @@ if __name__ == "__main__":
     # --- Export subparser
     subp_export = subparsers.add_parser(
         name="export",
-        description="Exports playlists",
+        description="Exports playlists or favorites to m3u8 files",
         help="Exports playlists",
+    )
+    subp_export.add_argument(
+        "output",
+        help="Path of the m3u8 file",
+        # required=True,
+    )
+    subp_export.add_argument(
+        "-r",
+        "--replace",
+        help="Replace part of the path with something else, comma separated (old,new)",
+        required=False,
+        metavar="name",
+        action="append",
+    )
+    excg_export = subp_export.add_mutually_exclusive_group(required=True)
+    excg_export.add_argument(
+        "-p",
+        "--playlist",
+        help="Choose a playlist to export",
+        required=False,
+        metavar="name",
+    )
+    excg_export.add_argument(
+        "-f",
+        "--favorites",
+        help="Export all favourites songs",
+        required=False,
+        action="store_true",
     )
 
     # --- Print subparser
