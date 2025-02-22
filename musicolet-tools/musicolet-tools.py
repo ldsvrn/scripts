@@ -10,54 +10,71 @@ logger = logging.getLogger(__name__)
 
 
 def subc_export(args, bck: MusicoletBackup) -> int:
-    if os.path.exists(args.output):
-        print(f"File '{args.output}' already exists!")
-        return 1
+    # make the output dir if it does not exist
+    try:
+        os.makedirs(args.output, exist_ok=True)
+    except FileExistsError:
+        print(f"FileExistsError: {args.output} is probably a file!")
 
-    # if using the subcommand "export", at least one argument must be used,
-    # either the favorites or a playlist, we can assulme
+    # if using the subcommand "export", at least one argument must be used
+    # the 'playlists' variable is a zip with the name of playlist and the dict
     if args.playlist:
         if bck.playlist_exists(args.playlist):
-            playlist = bck.get_playlist(args.playlist)
+            playlists = zip([args.playlist], [bck.get_playlist(args.playlist)])
         else:
             print(f"Playlist '{args.playlist}' does not exist!")
             return 1
     elif args.favorites:
-        playlist = bck.favorites
+        playlists = zip(["Favorites"], [bck.favorites])
+    elif args.all:
+        playlists = zip(
+            bck.playlists + ["Favorites"],
+            [bck.get_playlist(i) for i in bck.playlists] + [bck.favorites],
+        )
     else:
         # argparse shouldn't let this happen
         print("Invalid arguments for the export subcommand!")
         return 1
 
-    exported_count = 0
-    with open(args.output, "w", encoding="utf-8") as f:
-        f.write("#EXTM3U\n")  # M3U8 header
-        for song in playlist:
-            # it's in ms in the backup
-            duration = round(song["duration"] / 1000)
-            path = song["path"]
+    for cur_playlist_name, cur_playlist in playlists:
+        m3u8_path = os.path.join(args.output, cur_playlist_name + ".m3u8")
+        # add a number to the file if dest file already exists
+        if os.path.exists(m3u8_path):
+            number = 1
+            while os.path.exists(m3u8_path):
+                m3u8_path = os.path.join(args.output, cur_playlist_name + f" ({number}).m3u8")
+                number += 1
 
-            # honestly it would be better to just use a regex here
-            if args.replace:
-                # HAHAHA I LOVE PYTHON LMAO
-                for i in [j.split(",") for j in args.replace]:
-                    # this is so bad but who cares
-                    # the reason I need this is if I want a second replace
-                    # applied only if the first replace is done
-                    if i[0] in path:
-                        path = path.replace(i[0], i[1])
-                        if len(i) == 4:
-                            path = path.replace(i[2], i[3])
-            # if --check flag is set args.check=True, the file will have to exist
-            # to be written in the playlist
-            if not args.check or os.path.exists(path):
-                f.write(f"#EXTINF:{duration},{song['title']}\n")
-                f.write(f"{path}\n")
-                exported_count += 1
-            else:
-                print(f"Skipping {path}")
+        exported_count = 0
+        with open(m3u8_path, "w", encoding="utf-8") as f:
+            f.write("#EXTM3U\n")  # M3U8 header
+            for song in cur_playlist:
+                # it's in ms in the backup
+                duration = round(song["duration"] / 1000)
+                path = song["path"]
 
-    print(f"Successfully exported {exported_count} songs out of {len(playlist)} in {args.output}.")
+                # honestly it would be better to just use a regex here
+                if args.replace:
+                    # HAHAHA I LOVE PYTHON LMAO
+                    for i in [j.split(",") for j in args.replace]:
+                        # this is so bad but who cares
+                        # the reason I need this is if I want a second replace
+                        # applied only if the first replace is done
+                        if i[0] in path:
+                            path = path.replace(i[0], i[1])
+                            if len(i) == 4:
+                                path = path.replace(i[2], i[3])
+                # if --check flag is set args.check=True, the file will have to exist
+                # to be written in the playlist
+                if not args.check or os.path.exists(path):
+                    f.write(f"#EXTINF:{duration},{song['title']}\n")
+                    f.write(f"{path}\n")
+                    exported_count += 1
+                else:
+                    logger.info(f"Skipping {path}")
+        print(
+            f"=> Successfully exported {exported_count} songs out of {len(cur_playlist)} in {m3u8_path}."
+        )
     return 0
 
 
@@ -133,6 +150,13 @@ if __name__ == "__main__":
         required=False,
         action="store_true",
     )
+    excg_export.add_argument(
+        "-a",
+        "--all",
+        help="Export all favourites songs",
+        required=False,
+        action="store_true",
+    )
     subp_export.add_argument(
         "-r",
         "--replace",
@@ -152,7 +176,7 @@ if __name__ == "__main__":
     )
     subp_export.add_argument(
         "output",
-        help="Path of the m3u8 file",
+        help="Output dir",
         # required=True,
     )
 
