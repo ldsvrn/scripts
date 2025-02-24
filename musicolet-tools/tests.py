@@ -11,12 +11,15 @@ logger = logging.getLogger(__name__)
 
 def main() -> int:
     bck = MusicoletBackup(os.path.expanduser("~/Desktop/bck.zip"))
-    top = bck.get_top_N_songs_alltime(10)
+    top = bck.get_top_songs_alltime(10)
     print("name\t\t\tartist\t\tlistens\tlistensY\tlistensM\tlistensW")
     for song in top:
         print(
             f"{song['COL_TITLE']}\t{song['COL_ARTIST']}\t{song['COL_NUM_PLAYED']}\t{song['COL_NUM_PLAYED_Y']}\t{song['COL_NUM_PLAYED_M']}\t{song['COL_NUM_PLAYED_W']}"
         )
+
+    # get all
+    alltime = bck.get_top_songs_alltime()
 
     alltime = bck.listening_time_alltime / 1000 / 60 / 60
     print(alltime)

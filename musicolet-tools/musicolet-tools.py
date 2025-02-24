@@ -81,11 +81,29 @@ def subc_export(args, bck: MusicoletBackup) -> int:
 def subc_print(args, bck: MusicoletBackup) -> int:
     if args.favorites:
         for song in bck.favorites:
-            print(song["path"] if args.paths else f"{song['album']} - {song['title']}")
+            print(song["path"] if args.paths else f"{song['title']} - {song['album']}")
 
     if args.playlist:
         for song in bck.get_playlist(args.playlist.strip()):
-            print(song["path"] if args.paths else f"{song['album']} - {song['title']}")
+            print(song["path"] if args.paths else f"{song['title']} - {song['album']}")
+
+    if args.top or args.top_time:
+        # if by time use get_top_songs_alltime_by_time
+        top = (
+            bck.get_top_songs_alltime(args.top)
+            if args.top
+            else bck.get_top_songs_alltime_by_time(args.top_time)
+        )
+        for song in top:
+            # the IS the artists here, and i COULD lookup the artist in the DB for the fav and playlists
+            # but i WON'T because i aleady committed way too much time on this project
+            minutes = round((song["COL_NUM_PLAYED"] * song["COL_DURATION"]) / 60000)
+            # I want the info so fuck PEP8
+            print(
+                song["COL_PATH"]
+                if args.paths
+                else f"(Listens: {song['COL_NUM_PLAYED']}, {minutes}min, {round(minutes/60, 1)}h) {song['COL_TITLE'] } - {song['COL_ALBUM']} - {song['COL_ARTIST']}"
+            )
 
     if args.all_playlists:
         for playlist in bck.playlists:
@@ -94,6 +112,11 @@ def subc_print(args, bck: MusicoletBackup) -> int:
 
 
 def main(args) -> int:
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s",
+        level=logging.DEBUG if args.verbose else logging.CRITICAL,
+    )
+
     logger.debug(f"Args: {args}")
     bck = MusicoletBackup(args.backup)
 
@@ -109,11 +132,6 @@ def main(args) -> int:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s",
-        level=logging.CRITICAL,
-        # level=logging.INFO,
-    )
     parser = argparse.ArgumentParser(description="Extract information out of a Musicolet backup")
     parser.add_argument(
         "backup",
@@ -127,9 +145,16 @@ if __name__ == "__main__":
         required=False,
         metavar="dir",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        help="Include DEBUG level logs",
+        required=False,
+        action="store_true",
+    )
     subparsers = parser.add_subparsers(help="Subcommands", dest="subcommand")
 
-    # --- Export subparser
+    # --------------------------------------------- Export subparser
     subp_export = subparsers.add_parser(
         name="export",
         description="Exports playlists or favorites to m3u8 files",
@@ -180,7 +205,7 @@ if __name__ == "__main__":
         # required=True,
     )
 
-    # --- Print subparser
+    # --------------------------------------------- Print subparser
     subp_print = subparsers.add_parser(
         name="print",
         description="Print information in the terminal",
@@ -202,6 +227,22 @@ if __name__ == "__main__":
         metavar="name",
     )
     excg_print.add_argument(
+        "-t",
+        "--top",
+        help="Print top N played songs (by listens)",
+        required=False,
+        metavar="N",
+        type=int,
+    )
+    excg_print.add_argument(
+        "--top-time",
+        help="Print top N played songs (by time)",
+        required=False,
+        metavar="N",
+        type=int,
+    )
+    excg_print.add_argument(
+        "-a",
         "--all-playlists",
         help="Print all playlist names",
         required=False,

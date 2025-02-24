@@ -61,15 +61,54 @@ class MusicoletBackup:
                 logger.debug(f"Writing {os.path.join(path, name)}")
                 f.write(self.backup[name])
 
-    def get_top_N_songs_alltime(self, n: int) -> list:
-        self.__maindb_cursor.execute(
-            f'SELECT * FROM "TABLE_SONGS" ORDER BY "COL_NUM_PLAYED" DESC LIMIT {n};'
-        )
+    def get_top_songs_alltime(self, n: int = 0) -> list:
+        """
+        returns a list of dict object with top n songs, by the number of times it was listened to
+        """
+        if n >= 1:
+            sql = f'SELECT * FROM "TABLE_SONGS" ORDER BY "COL_NUM_PLAYED" DESC LIMIT {n};'
+        elif n == 0:
+            sql = 'SELECT * FROM "TABLE_SONGS" ORDER BY "COL_NUM_PLAYED" DESC;'
+        else:
+            raise ValueError("Value of n cannot be negative!")
 
-        # results as a list of dict
-        res = [dict(row) for row in self.__maindb_cursor.fetchall()]
+        logger.debug(f"Running '{sql}' on 'DB_SONGS_LOG'...")
+        self.__maindb_cursor.execute(sql)
 
-        return res
+        # results as a list of dict, parsing the path is probably overkill here,
+        # since "COL_LOGPATH" has clean paths but I want paths to be consitent with playlists
+        return [
+            {**dict(row), "COL_PATH": MusicoletBackup.__parse_path(row["COL_PATH"])}
+            for row in self.__maindb_cursor.fetchall()
+        ]
+
+    def get_top_songs_alltime_by_time(self, n: int = 0) -> list:
+        """
+        returns a list of dict object with the top n songs, accounts for the length of the songs
+        """
+        if n >= 1:
+            sql = f"""
+            SELECT * FROM "TABLE_SONGS" 
+            ORDER BY ("COL_NUM_PLAYED" * "COL_DURATION") DESC 
+            LIMIT {n};
+            """
+        elif n == 0:
+            sql = """
+            SELECT * FROM "TABLE_SONGS" 
+            ORDER BY ("COL_NUM_PLAYED" * "COL_DURATION") DESC;
+            """
+        else:
+            raise ValueError("Value of n cannot be negative!")
+
+        logger.debug(f"Running '{sql}' on 'DB_SONGS_LOG'...")
+        self.__maindb_cursor.execute(sql)
+
+        # results as a list of dict, parsing the path is probably overkill here,
+        # since "COL_LOGPATH" has clean paths but I want paths to be consitent with playlists
+        return [
+            {**dict(row), "COL_PATH": MusicoletBackup.__parse_path(row["COL_PATH"])}
+            for row in self.__maindb_cursor.fetchall()
+        ]
 
     @staticmethod
     def __parse_path(path: str) -> str:
