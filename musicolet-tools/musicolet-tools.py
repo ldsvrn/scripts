@@ -31,6 +31,28 @@ def subc_export(args, bck: MusicoletBackup) -> int:
             bck.playlists + ["Favorites"],
             [bck.get_playlist(i) for i in bck.playlists] + [bck.favorites],
         )
+    if args.top or args.top_time:
+        # if by time use get_top_songs_alltime_by_time
+        top_raw = (
+            bck.get_top_songs_alltime(args.top)
+            if args.top
+            else bck.get_top_songs_alltime_by_time(args.top_time)
+        )
+        name = (
+            f"Top {args.top} songs by listens (alltime)"
+            if args.top
+            else f"Top {args.top_time} songs by time (alltime)"
+        )
+        top = [
+            {
+                "path": i["COL_PATH"],
+                "duration": int(i["COL_DURATION"]),
+                "title": i["COL_TITLE"],
+            }
+            for i in top_raw
+        ]
+        playlists = zip([name], [top])
+
     else:
         # argparse shouldn't let this happen
         print("Invalid arguments for the export subcommand!")
@@ -169,6 +191,21 @@ if __name__ == "__main__":
         metavar="name",
     )
     excg_export.add_argument(
+        "-t",
+        "--top",
+        help="Export the top N songs alltime (by listens)",
+        required=False,
+        metavar="N",
+        type=int,
+    )
+    excg_export.add_argument(
+        "--top-time",
+        help="Export the top N songs alltime (by time)",
+        required=False,
+        metavar="N",
+        type=int,
+    )
+    excg_export.add_argument(
         "-f",
         "--favorites",
         help="Export all favourites songs",
@@ -178,7 +215,7 @@ if __name__ == "__main__":
     excg_export.add_argument(
         "-a",
         "--all",
-        help="Export all favourites songs",
+        help="Export all playlists and favourites songs",
         required=False,
         action="store_true",
     )
