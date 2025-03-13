@@ -38,6 +38,7 @@ def subc_export(args, bck: MusicoletBackup) -> int:
             if args.top
             else bck.get_top_songs_alltime_by_time(args.top_time)
         )
+        # i need to adapt the data in the correct format for the m3u8 code to work
         name = (
             f"Top {args.top} songs by listens (alltime)"
             if args.top
