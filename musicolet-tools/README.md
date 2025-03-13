@@ -11,14 +11,55 @@ This key is prone to change depending on the developper mind, but since it is ha
 
 ## Usage (WIP)
 ```
-usage: musicolet-tools.py [-h] [-d dir] path
+usage: musicolet-tools.py [-h] [-d dir] [-v] backup_path {export,print} ...
 
 Extract information out of a Musicolet backup
 
 positional arguments:
-  path               Musicolet backup path
+  backup_path        Musicolet backup .zip path
+  {export,print}     Subcommands
+    export           Exports playlists
+    print            Print information in the terminal
 
 options:
   -h, --help         show this help message and exit
   -d, --decrypt dir  Extracts and decrypts all files to the specified directory
+  -v, --verbose      Include DEBUG level logs
+```
+
+## export
+```
+usage: musicolet-tools.py backup_path export [-h] (-p name | -t N | --top-time N | -f | -a) [-r csv] [-c] output
+
+Exports playlists or favorites to m3u8 files
+
+positional arguments:
+  output               Output dir
+
+options:
+  -h, --help           show this help message and exit
+  -p, --playlist name  Choose a playlist to export
+  -t, --top N          Export the top N songs alltime (by listens)
+  --top-time N         Export the top N songs alltime (by time)
+  -f, --favorites      Export all favourites songs
+  -a, --all            Export all playlists and favourites songs
+  -r, --replace csv    Replace part of the path with something else, comma separated 'old,new,old2,new2', last 2 values are not required and will apply only
+                       if the first replace is done, this argument can be called multiple times
+  -c, --check          Check if file exists before writing it to the m3u8, test done after replace
+```
+
+## print
+```
+usage: musicolet-tools.py backup_path print [-h] [-f | -p name | -t N | --top-time N | -a] [--paths]
+
+Print information in the terminal
+
+options:
+  -h, --help           show this help message and exit
+  -f, --favorites      Print all favourites songs
+  -p, --playlist name  Print the content of a playlist
+  -t, --top N          Print top N played songs (by listens)
+  --top-time N         Print top N played songs (by time)
+  -a, --all-playlists  Print all playlist names
+  --paths              Print paths instead of names
 ```

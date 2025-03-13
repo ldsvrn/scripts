@@ -31,7 +31,7 @@ def subc_export(args, bck: MusicoletBackup) -> int:
             bck.playlists + ["Favorites"],
             [bck.get_playlist(i) for i in bck.playlists] + [bck.favorites],
         )
-    if args.top or args.top_time:
+    elif args.top or args.top_time:
         # if by time use get_top_songs_alltime_by_time
         top_raw = (
             bck.get_top_songs_alltime(args.top)
