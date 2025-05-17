@@ -3,10 +3,11 @@ import os
 import logging
 import io
 import json
+from hashlib import md5
 from tempfile import NamedTemporaryFile
 from Crypto.Cipher import Blowfish
-from Crypto.Util.Padding import unpad
-from zipfile import ZipFile
+from Crypto.Util.Padding import unpad, pad
+import zipfile
 from urllib.parse import unquote, urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class MusicoletBackup:
             return data_decrypted
 
         # we can decrypt all files from the zip
-        with ZipFile(backup_path, "r") as zipbackup:
+        with zipfile.ZipFile(backup_path, "r") as zipbackup:
             decr_files = {}
             namelist = zipbackup.namelist()
             for name in namelist:
@@ -52,6 +53,60 @@ class MusicoletBackup:
     def __del__(self):
         logger.debug("deleted object, closing temporary files...")
         self.__maindb_file.close()
+
+    @staticmethod
+    def encrypt_backup(dirpath: str, outpath: str):
+        """This function can be used to create a valid Musicolet backup zip from a decrypted
+        backup. Note: for now it does NOT support adding files to the backup!!
+
+        Args:
+            dirpath (str): path of the decrypted backup dir
+            outpath (str): path of the zip
+        """
+
+        def __encrypt_file(data: bytes) -> bytes:
+            key = "JSTMUSIC_2"
+            cipher = Blowfish.new(bytes(key, "utf-8"), Blowfish.MODE_ECB)
+            return cipher.encrypt(pad(data, Blowfish.block_size))
+
+        bck_files = {}
+
+        for root, _, files in os.walk(dirpath):
+            if "0.musicolet.backup" not in files:
+                raise Exception("there is no '0.musicolet.backup' file!")
+
+            for file in files:
+                filepath = os.path.join(root, file)
+                relpath = os.path.relpath(filepath, dirpath)
+
+                with open(filepath, "rb") as f:
+                    data = f.read()
+
+                if file != "0.musicolet.backup":
+                    logger.debug(f"adding {file} in the dict")
+                    bck_files[relpath] = {"data": data, "md5": md5(data).hexdigest()}
+                else:
+                    backup_file = json.loads(data)
+
+        # preparing the "0.musicolet.backup" file
+        for file in backup_file["md5"].keys():
+            # replace all md4 in the "0.musicolet.backup" file with the newly calculated ones
+            try:
+                backup_file["md5"][file] = bck_files[file]["md5"]
+            except KeyError:
+                raise Exception(
+                    f"File '{file}' is present in '0.musicolet.backup' but not in the dir!"
+                )
+
+        with zipfile.ZipFile(outpath, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file in bck_files.keys():
+                logger.debug(f"adding {file} in the {outpath} zipfile.")
+                zipf.writestr(file, __encrypt_file(bck_files[file]["data"]))
+
+            # write the hash file
+            zipf.writestr(
+                "hash", md5(json.dumps(backup_file).encode("utf-8")).hexdigest().encode("utf-8")
+            )
 
     def export_all_files(self, path: str) -> None:
         # make the dir if not exists

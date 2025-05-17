@@ -134,6 +134,15 @@ def subc_print(args, bck: MusicoletBackup) -> int:
     return 0
 
 
+def subc_makezip(args) -> int:
+    if not args.output.endswith(".zip"):
+        print("ERROR: Output is not a .zip!")
+        return 1
+
+    MusicoletBackup.encrypt_backup(args.input, args.output)
+    return 0
+
+
 def main(args) -> int:
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s",
@@ -141,6 +150,11 @@ def main(args) -> int:
     )
 
     logger.debug(f"Args: {args}")
+
+    # makezip does not need the backup
+    if args.subcommand == "makezip":
+        return subc_makezip(args)
+
     bck = MusicoletBackup(args.backup)
 
     if args.decrypt:
@@ -293,5 +307,22 @@ if __name__ == "__main__":
         required=False,
         action="store_true",
     )
+
+    subp_makezip = subparsers.add_parser(
+        name="makezip",
+        description="Make a valid Musicolet backup from a directory",
+        help="Make a valid Musicolet backup from a directory",
+    )
+
+    subp_makezip.add_argument(
+        "input",
+        help="Input dir",
+    )
+
+    subp_makezip.add_argument(
+        "output",
+        help="Output zipfile",
+    )
+
     # pass the args to the main function
     exit(main(parser.parse_args()))
